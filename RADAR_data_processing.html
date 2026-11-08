@@ -1,0 +1,361 @@
+
+<!DOCTYPE html
+  PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<html><head>
+      <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+   <!--
+This HTML was auto-generated from MATLAB code.
+To make changes, update the MATLAB code and republish this document.
+      --><title>RADAR_data_processing</title><meta name="generator" content="MATLAB 9.8"><link rel="schema.DC" href="http://purl.org/dc/elements/1.1/"><meta name="DC.date" content="2021-12-22"><meta name="DC.source" content="RADAR_data_processing.m"><style type="text/css">
+html,body,div,span,applet,object,iframe,h1,h2,h3,h4,h5,h6,p,blockquote,pre,a,abbr,acronym,address,big,cite,code,del,dfn,em,font,img,ins,kbd,q,s,samp,small,strike,strong,sub,sup,tt,var,b,u,i,center,dl,dt,dd,ol,ul,li,fieldset,form,label,legend,table,caption,tbody,tfoot,thead,tr,th,td{margin:0;padding:0;border:0;outline:0;font-size:100%;vertical-align:baseline;background:transparent}body{line-height:1}ol,ul{list-style:none}blockquote,q{quotes:none}blockquote:before,blockquote:after,q:before,q:after{content:'';content:none}:focus{outine:0}ins{text-decoration:none}del{text-decoration:line-through}table{border-collapse:collapse;border-spacing:0}
+
+html { min-height:100%; margin-bottom:1px; }
+html body { height:100%; margin:0px; font-family:Arial, Helvetica, sans-serif; font-size:10px; color:#000; line-height:140%; background:#fff none; overflow-y:scroll; }
+html body td { vertical-align:top; text-align:left; }
+
+h1 { padding:0px; margin:0px 0px 25px; font-family:Arial, Helvetica, sans-serif; font-size:1.5em; color:#d55000; line-height:100%; font-weight:normal; }
+h2 { padding:0px; margin:0px 0px 8px; font-family:Arial, Helvetica, sans-serif; font-size:1.2em; color:#000; font-weight:bold; line-height:140%; border-bottom:1px solid #d6d4d4; display:block; }
+h3 { padding:0px; margin:0px 0px 5px; font-family:Arial, Helvetica, sans-serif; font-size:1.1em; color:#000; font-weight:bold; line-height:140%; }
+
+a { color:#005fce; text-decoration:none; }
+a:hover { color:#005fce; text-decoration:underline; }
+a:visited { color:#004aa0; text-decoration:none; }
+
+p { padding:0px; margin:0px 0px 20px; }
+img { padding:0px; margin:0px 0px 20px; border:none; }
+p img, pre img, tt img, li img, h1 img, h2 img { margin-bottom:0px; }
+
+ul { padding:0px; margin:0px 0px 20px 23px; list-style:square; }
+ul li { padding:0px; margin:0px 0px 7px 0px; }
+ul li ul { padding:5px 0px 0px; margin:0px 0px 7px 23px; }
+ul li ol li { list-style:decimal; }
+ol { padding:0px; margin:0px 0px 20px 0px; list-style:decimal; }
+ol li { padding:0px; margin:0px 0px 7px 23px; list-style-type:decimal; }
+ol li ol { padding:5px 0px 0px; margin:0px 0px 7px 0px; }
+ol li ol li { list-style-type:lower-alpha; }
+ol li ul { padding-top:7px; }
+ol li ul li { list-style:square; }
+
+.content { font-size:1.2em; line-height:140%; padding: 20px; }
+
+pre, code { font-size:12px; }
+tt { font-size: 1.2em; }
+pre { margin:0px 0px 20px; }
+pre.codeinput { padding:10px; border:1px solid #d3d3d3; background:#f7f7f7; }
+pre.codeoutput { padding:10px 11px; margin:0px 0px 20px; color:#4c4c4c; }
+pre.error { color:red; }
+
+@media print { pre.codeinput, pre.codeoutput { word-wrap:break-word; width:100%; } }
+
+span.keyword { color:#0000FF }
+span.comment { color:#228B22 }
+span.string { color:#A020F0 }
+span.untermstring { color:#B20000 }
+span.syscmd { color:#B28C00 }
+span.typesection { color:#A0522D }
+
+.footer { width:auto; padding:10px 0px; margin:25px 0px 0px; border-top:1px dotted #878787; font-size:0.8em; line-height:140%; font-style:italic; color:#878787; text-align:left; float:none; }
+.footer p { margin:0px; }
+.footer a { color:#878787; }
+.footer a:hover { color:#878787; text-decoration:underline; }
+.footer a:visited { color:#878787; }
+
+table th { padding:7px 5px; text-align:left; vertical-align:middle; border: 1px solid #d6d4d4; font-weight:bold; }
+table td { padding:7px 5px; text-align:left; vertical-align:top; border:1px solid #d6d4d4; }
+
+
+
+
+
+  </style></head><body><div class="content"><h2>Contents</h2><div><ul><li><a href="#2">Generate radar pulses</a></li><li><a href="#3">Perform beamforming</a></li><li><a href="#4">Beamform for all 32 pulses</a></li><li><a href="#5">Perform matched filtering</a></li><li><a href="#6">Find range bin where detected peak occurs</a></li><li><a href="#7">Perform doppler processing</a></li><li><a href="#8">Doppler Processing Using RangeDopplerResponse</a></li><li><a href="#9">Doppler Processing Using AngleDopplerResponse</a></li></ul></div><pre class="codeinput"><span class="comment">% RadarCubePart2.m</span>
+<span class="comment">% This program processes a radar datacube using functions from Phased Array</span>
+<span class="comment">% System Toolbox.  The program first creates a radar datacube for a single</span>
+<span class="comment">% target at 20 km distance, 30 degree azimuth and 150 m/sec velocity.  The</span>
+<span class="comment">% program then performs beamforming, matched filtering and Doppler</span>
+<span class="comment">% Processing to determine the target's distance and velocity.</span>
+<span class="comment">% Copyright 2015, The MathWorks, Inc.</span>
+<span class="comment">% Target Specs</span>
+TgtModel=phased.RadarTarget;
+tgtpos=[10e3*sqrt(3);10e3;0];  <span class="comment">% Target at 20 km distance, 30 degree azimuth</span>
+tgtvel=[75*sqrt(3);75;0];      <span class="comment">% Radial velocity is 150 m/sec</span>
+<span class="comment">% ULA Specs</span>
+antenna=phased.ULA;
+antenna.NumElements = 8;
+cosineElement = phased.CosineAntennaElement;
+antenna.Element = cosineElement;
+<span class="comment">% Waveform Specs</span>
+waveform=phased.LinearFMWaveform;
+waveform.PRF=1000;
+waveform.PulseWidth=1e-4;
+prf = waveform.PRF;
+nSamples = waveform.SampleRate/prf;
+<span class="comment">% Transmitter Specs</span>
+TX=phased.Transmitter(<span class="string">'Gain'</span>,20);
+<span class="comment">% Platform Specs</span>
+PlatformModel=phased.Platform;
+PlatformModel.InitialPosition = tgtpos;
+PlatformModel.Velocity = tgtvel;
+<span class="comment">% Channel Specs</span>
+ChannelModel = phased.FreeSpace;
+ChannelModel.TwoWayPropagation=true;
+<span class="comment">% Tx ans Rx Specs</span>
+txArray = phased.Radiator(<span class="keyword">...</span>
+    <span class="string">'Sensor'</span>,antenna,<span class="keyword">...</span>
+    <span class="string">'OperatingFrequency'</span>,300e6);
+rxArray = phased.Collector(<span class="keyword">...</span>
+    <span class="string">'Sensor'</span>,antenna,<span class="keyword">...</span>
+    <span class="string">'OperatingFrequency'</span>,300e6);
+rxPreamp = phased.ReceiverPreamp(<span class="string">'Gain'</span>,10,<span class="string">'NoiseFigure'</span>,5);
+<span class="comment">% Variable definitions</span>
+radarPos = [0;0;0];
+radarVel = [0;0;0];
+nPulses = 32;
+tgtAng = zeros(2,nPulses);
+tgtAngcopy = zeros(2,nPulses);
+datacube = complex(zeros(nSamples,antenna.NumElements,nPulses));
+</pre><h2 id="2">Generate radar pulses</h2><pre class="codeinput"><span class="keyword">for</span> ii=1:nPulses
+    wf=step(waveform);                                                 <span class="comment">% Generate waveform</span>
+    [tgtPos, tgtVel] = step(PlatformModel,1/prf);                      <span class="comment">% Update target position</span>
+    [tgtRng, tgtAng] = rangeangle(tgtPos, radarPos);                   <span class="comment">% Calculate range/angle to target</span>
+    tgtAngcopy(:,ii)=tgtAng;
+    s0 = step(TX, wf);                                                 <span class="comment">% Amplify signal</span>
+    s1 = step(txArray,s0, tgtAng);                                     <span class="comment">% Radiate the signal from the array</span>
+    s2 = step(ChannelModel, s0, radarPos, tgtPos, radarVel, tgtVel);   <span class="comment">% Propagate from radar to target and return</span>
+    s3 = step(TgtModel, s2);                                           <span class="comment">% Reflect signal from Target</span>
+    s4 = step(rxArray,s3,tgtAng);                                      <span class="comment">% Receive the signal at the array</span>
+    s5 = step(rxPreamp,s4);                                            <span class="comment">% Add rx noise</span>
+    datacube(:,:,ii) = s5(:,:);                                        <span class="comment">% Build data cube 1 pulse at a time</span>
+<span class="keyword">end</span>
+figure;
+t = (0:nPulses*nSamples-1)/waveform.SampleRate;
+y = abs(datacube(:,1,:));
+plot(t,y(:));title(<span class="string">'Reflected Target Return (One Channel)'</span>); xlabel(<span class="string">'Time (sec)'</span>); ylabel(<span class="string">'Magnitude'</span>)
+</pre><img vspace="5" hspace="5" src="RADAR_data_processing_01.png" alt=""> <h2 id="3">Perform beamforming</h2><p>Beamformer Specs</p><pre class="codeinput">beamformer=phased.PhaseShiftBeamformer;
+beamformer.SensorArray=antenna;
+beamformer.DirectionSource=<span class="string">'Input port'</span>;
+beamformer.WeightsOutputPort=true;
+beamformer.WeightsNormalization=<span class="string">'Preserve power'</span>;
+[bf0,w0]=step(beamformer,datacube(:,:,1),[0;0]);
+[bf, w]=step(beamformer,datacube(:,:,1),[30;0]);
+figure;
+subplot(2,2,1);
+pattern(antenna,300e6,-180:180,0,<span class="keyword">...</span>
+    <span class="string">'PropagationSpeed'</span>,physconst(<span class="string">'LightSpeed'</span>),<span class="string">'Normalize'</span>,false,<span class="keyword">...</span>
+    <span class="string">'Type'</span>,<span class="string">'powerdb'</span>,<span class="string">'CoordinateSystem'</span>,<span class="string">'rectangular'</span>);
+subplot(2,2,2);plot(abs(bf0));
+title(<span class="string">'Sum Of Receive Elements'</span>); xlabel(<span class="string">'Time (msec)'</span>);
+subplot(2,2,3);pattern(antenna,300e6,-180:180,0,<span class="string">'Weights'</span>,w,<span class="keyword">...</span>
+    <span class="string">'PropagationSpeed'</span>,physconst(<span class="string">'LightSpeed'</span>),<span class="string">'Normalize'</span>,false,<span class="keyword">...</span>
+    <span class="string">'Type'</span>,<span class="string">'powerdb'</span>,<span class="string">'CoordinateSystem'</span>,<span class="string">'rectangular'</span>);
+subplot(2,2,4);plot(abs(bf));
+title(<span class="string">'Beamformed Return (30 degree steering)'</span>); xlabel(<span class="string">'Time (msec)'</span>);
+</pre><h2 id="4">Beamform for all 32 pulses</h2><pre class="codeinput">beamformed=complex(zeros(nSamples,nPulses));
+<span class="keyword">for</span> ii=1:nPulses
+    beamformed(:,ii)=step(beamformer,squeeze(datacube(:,:,ii)),tgtAngcopy(:,ii));
+<span class="keyword">end</span>
+figure;
+t = (0:nPulses*nSamples-1)/waveform.SampleRate;
+y = abs(reshape(beamformed,nPulses*nSamples,1));
+dc=abs(reshape(datacube(:,1,:),nPulses*nSamples,1));
+subplot(2,1,1);plot(t,dc);title(<span class="string">'Single Channel Target Return'</span>); xlabel(<span class="string">'Time (sec)'</span>); ylabel(<span class="string">'Magnitude'</span>)
+subplot(2,1,2);plot(t,y);title(<span class="string">'Beamformed Target Return'</span>); xlabel(<span class="string">'Time (sec)'</span>); ylabel(<span class="string">'Magnitude'</span>)
+</pre><img vspace="5" hspace="5" src="RADAR_data_processing_02.png" alt=""> <h2 id="5">Perform matched filtering</h2><pre class="codeinput">b = getMatchedFilter(waveform);
+matchedfilter = phased.MatchedFilter(<span class="string">'Coefficients'</span>,b,<span class="string">'SpectrumWindow'</span>,<span class="string">'Hamming'</span>);
+matchFiltered = step(matchedfilter,beamformed);
+figure;
+subplot(1,2,1);plot(real(wf));title(<span class="string">'Radar Waveform'</span>); xlabel(<span class="string">'Time (sec)'</span>); ylabel(<span class="string">'Amplitude'</span>)
+subplot(1,2,2);plot(real(b));title(<span class="string">'Waveform Matched Filter'</span>);
+figure;
+t = (0:nSamples-1)/waveform.SampleRate;
+subplot(1,2,1);plot(t,abs(bf)); title(<span class="string">'Beamformed Return (30 degree steering)'</span>)
+subplot(1,2,2);plot(t,abs(matchFiltered(:,nPulses/2)));title(<span class="string">'Pulse Compressed Return'</span>); xlabel(<span class="string">'Time (sec)'</span>); ylabel(<span class="string">'Magnitude'</span>)
+</pre><img vspace="5" hspace="5" src="RADAR_data_processing_03.png" alt=""> <img vspace="5" hspace="5" src="RADAR_data_processing_04.png" alt=""> <img vspace="5" hspace="5" src="RADAR_data_processing_05.png" alt=""> <h2 id="6">Find range bin where detected peak occurs</h2><pre class="codeinput">[m,ind] = max(abs(matchFiltered(:,nPulses/2)));  <span class="comment">% ind is the range bin where the max amplitude occurs for the middle pulse</span>
+targetRange = time2range((ind-length(b)-1)/waveform.SampleRate, beamformer.PropagationSpeed)
+</pre><pre class="codeoutput">
+targetRange =
+
+   1.9936e+04
+
+</pre><h2 id="7">Perform doppler processing</h2><pre class="codeinput">dopplered = fftshift(fft(beamformed(ind,:).')); <span class="comment">% Take the fft at the max amplitude range bin</span>
+lambda=beamformer.PropagationSpeed/beamformer.OperatingFrequency;
+h5 = figure;
+f = (-prf/2:prf/nPulses:prf/2-prf/64);
+v = f*lambda/2;
+plot(v,abs(dopplered)); title(<span class="string">'Doppler Processing'</span>); xlabel(<span class="string">'Target Speed (m/s)'</span>); ylabel(<span class="string">'Magnitude'</span>);
+annotation(h5,<span class="string">'textbox'</span>,<span class="keyword">...</span>
+    [0.142657579062161 0.836671802773498 0.151671755725191 0.0647149460708782],<span class="keyword">...</span>
+    <span class="string">'String'</span>,strcat(<span class="string">'Range = '</span>,num2str(targetRange),<span class="string">'m'</span>),<span class="keyword">...</span>
+    <span class="string">'FitBoxToText'</span>,<span class="string">'on'</span>);
+</pre><img vspace="5" hspace="5" src="RADAR_data_processing_06.png" alt=""> <h2 id="8">Doppler Processing Using RangeDopplerResponse</h2><p>Use the RangeDopplerResopnse object to display target range and speed</p><pre class="codeinput">figure;
+rangeDoppler=phased.RangeDopplerResponse;
+rangeDoppler.DopplerOutput=<span class="string">'Speed'</span>;
+plotResponse(rangeDoppler,beamformed,b)
+ylabel(<span class="string">'Range (km)'</span>);
+</pre><img vspace="5" hspace="5" src="RADAR_data_processing_07.png" alt=""> <h2 id="9">Doppler Processing Using AngleDopplerResponse</h2><p>First apply matched filter to each receive channel</p><pre class="codeinput">matched = complex(zeros(nSamples,nPulses,antenna.NumElements));
+<span class="keyword">for</span> ii=1:antenna.NumElements
+    <span class="keyword">for</span> jj=1:nPulses
+        matched(:,jj,ii) = filter(b,1,datacube(:,ii,jj));
+    <span class="keyword">end</span>
+<span class="keyword">end</span>
+<span class="comment">% Now use the AngleDopplerResponse object to display Target Angle and</span>
+<span class="comment">% Dopppler frequency shift</span>
+dd = squeeze(matched(ind,:,:)).';
+angleDopplerResp = phased.AngleDopplerResponse(<span class="string">'SensorArray'</span>,antenna,<span class="keyword">...</span>
+    <span class="string">'OperatingFrequency'</span>,3e8, <span class="keyword">...</span>
+    <span class="string">'PropagationSpeed'</span>,physconst(<span class="string">'LightSpeed'</span>),<span class="keyword">...</span>
+    <span class="string">'PRF'</span>,prf, <span class="string">'ElevationAngle'</span>,0);
+figure;
+plotResponse(angleDopplerResp,dd);
+</pre><img vspace="5" hspace="5" src="RADAR_data_processing_08.png" alt=""> <img vspace="5" hspace="5" src="RADAR_data_processing_09.png" alt=""> <p>Complete</p><p class="footer"><br><a href="https://www.mathworks.com/products/matlab/">Published with MATLAB&reg; R2020a</a><br></p></div><!--
+##### SOURCE BEGIN #####
+% RadarCubePart2.m
+% This program processes a radar datacube using functions from Phased Array
+% System Toolbox.  The program first creates a radar datacube for a single
+% target at 20 km distance, 30 degree azimuth and 150 m/sec velocity.  The
+% program then performs beamforming, matched filtering and Doppler
+% Processing to determine the target's distance and velocity.  
+% Copyright 2015, The MathWorks, Inc.
+% Target Specs
+TgtModel=phased.RadarTarget;
+tgtpos=[10e3*sqrt(3);10e3;0];  % Target at 20 km distance, 30 degree azimuth
+tgtvel=[75*sqrt(3);75;0];      % Radial velocity is 150 m/sec
+% ULA Specs
+antenna=phased.ULA;
+antenna.NumElements = 8;
+cosineElement = phased.CosineAntennaElement;
+antenna.Element = cosineElement;
+% Waveform Specs
+waveform=phased.LinearFMWaveform;
+waveform.PRF=1000;
+waveform.PulseWidth=1e-4;
+prf = waveform.PRF;
+nSamples = waveform.SampleRate/prf;
+% Transmitter Specs
+TX=phased.Transmitter('Gain',20);
+% Platform Specs
+PlatformModel=phased.Platform;
+PlatformModel.InitialPosition = tgtpos;
+PlatformModel.Velocity = tgtvel;
+% Channel Specs
+ChannelModel = phased.FreeSpace;
+ChannelModel.TwoWayPropagation=true;
+% Tx ans Rx Specs
+txArray = phased.Radiator(...
+    'Sensor',antenna,...
+    'OperatingFrequency',300e6);
+rxArray = phased.Collector(...
+    'Sensor',antenna,...
+    'OperatingFrequency',300e6);
+rxPreamp = phased.ReceiverPreamp('Gain',10,'NoiseFigure',5);
+% Variable definitions
+radarPos = [0;0;0];
+radarVel = [0;0;0];
+nPulses = 32;
+tgtAng = zeros(2,nPulses);
+tgtAngcopy = zeros(2,nPulses);
+datacube = complex(zeros(nSamples,antenna.NumElements,nPulses));
+%% Generate radar pulses
+for ii=1:nPulses
+    wf=step(waveform);                                                 % Generate waveform
+    [tgtPos, tgtVel] = step(PlatformModel,1/prf);                      % Update target position
+    [tgtRng, tgtAng] = rangeangle(tgtPos, radarPos);                   % Calculate range/angle to target
+    tgtAngcopy(:,ii)=tgtAng;
+    s0 = step(TX, wf);                                                 % Amplify signal
+    s1 = step(txArray,s0, tgtAng);                                     % Radiate the signal from the array
+    s2 = step(ChannelModel, s0, radarPos, tgtPos, radarVel, tgtVel);   % Propagate from radar to target and return
+    s3 = step(TgtModel, s2);                                           % Reflect signal from Target 
+    s4 = step(rxArray,s3,tgtAng);                                      % Receive the signal at the array
+    s5 = step(rxPreamp,s4);                                            % Add rx noise
+    datacube(:,:,ii) = s5(:,:);                                        % Build data cube 1 pulse at a time
+end
+figure;
+t = (0:nPulses*nSamples-1)/waveform.SampleRate;
+y = abs(datacube(:,1,:));
+plot(t,y(:));title('Reflected Target Return (One Channel)'); xlabel('Time (sec)'); ylabel('Magnitude')
+%% Perform beamforming
+% Beamformer Specs
+beamformer=phased.PhaseShiftBeamformer;
+beamformer.SensorArray=antenna;
+beamformer.DirectionSource='Input port';
+beamformer.WeightsOutputPort=true;
+beamformer.WeightsNormalization='Preserve power';
+[bf0,w0]=step(beamformer,datacube(:,:,1),[0;0]);
+[bf, w]=step(beamformer,datacube(:,:,1),[30;0]);
+figure;
+subplot(2,2,1);
+pattern(antenna,300e6,-180:180,0,...
+    'PropagationSpeed',physconst('LightSpeed'),'Normalize',false,...
+    'Type','powerdb','CoordinateSystem','rectangular');
+subplot(2,2,2);plot(abs(bf0));
+title('Sum Of Receive Elements'); xlabel('Time (msec)');
+subplot(2,2,3);pattern(antenna,300e6,-180:180,0,'Weights',w,...
+    'PropagationSpeed',physconst('LightSpeed'),'Normalize',false,...
+    'Type','powerdb','CoordinateSystem','rectangular');
+subplot(2,2,4);plot(abs(bf)); 
+title('Beamformed Return (30 degree steering)'); xlabel('Time (msec)');
+
+%% Beamform for all 32 pulses
+beamformed=complex(zeros(nSamples,nPulses));
+for ii=1:nPulses
+    beamformed(:,ii)=step(beamformer,squeeze(datacube(:,:,ii)),tgtAngcopy(:,ii));
+end
+figure; 
+t = (0:nPulses*nSamples-1)/waveform.SampleRate;
+y = abs(reshape(beamformed,nPulses*nSamples,1));
+dc=abs(reshape(datacube(:,1,:),nPulses*nSamples,1));
+subplot(2,1,1);plot(t,dc);title('Single Channel Target Return'); xlabel('Time (sec)'); ylabel('Magnitude')
+subplot(2,1,2);plot(t,y);title('Beamformed Target Return'); xlabel('Time (sec)'); ylabel('Magnitude')
+
+%% Perform matched filtering
+b = getMatchedFilter(waveform);
+matchedfilter = phased.MatchedFilter('Coefficients',b,'SpectrumWindow','Hamming');
+matchFiltered = step(matchedfilter,beamformed);
+figure;
+subplot(1,2,1);plot(real(wf));title('Radar Waveform'); xlabel('Time (sec)'); ylabel('Amplitude')
+subplot(1,2,2);plot(real(b));title('Waveform Matched Filter');
+figure;
+t = (0:nSamples-1)/waveform.SampleRate;
+subplot(1,2,1);plot(t,abs(bf)); title('Beamformed Return (30 degree steering)')
+subplot(1,2,2);plot(t,abs(matchFiltered(:,nPulses/2)));title('Pulse Compressed Return'); xlabel('Time (sec)'); ylabel('Magnitude')
+%% Find range bin where detected peak occurs
+[m,ind] = max(abs(matchFiltered(:,nPulses/2)));  % ind is the range bin where the max amplitude occurs for the middle pulse
+targetRange = time2range((ind-length(b)-1)/waveform.SampleRate, beamformer.PropagationSpeed)
+%% Perform doppler processing
+dopplered = fftshift(fft(beamformed(ind,:).')); % Take the fft at the max amplitude range bin 
+lambda=beamformer.PropagationSpeed/beamformer.OperatingFrequency;
+h5 = figure;
+f = (-prf/2:prf/nPulses:prf/2-prf/64);
+v = f*lambda/2;
+plot(v,abs(dopplered)); title('Doppler Processing'); xlabel('Target Speed (m/s)'); ylabel('Magnitude');
+annotation(h5,'textbox',...
+    [0.142657579062161 0.836671802773498 0.151671755725191 0.0647149460708782],...
+    'String',strcat('Range = ',num2str(targetRange),'m'),...
+    'FitBoxToText','on');
+%% Doppler Processing Using RangeDopplerResponse
+% Use the RangeDopplerResopnse object to display target range and speed
+figure;
+rangeDoppler=phased.RangeDopplerResponse;
+rangeDoppler.DopplerOutput='Speed';
+plotResponse(rangeDoppler,beamformed,b)
+ylabel('Range (km)');
+%% Doppler Processing Using AngleDopplerResponse
+% First apply matched filter to each receive channel
+matched = complex(zeros(nSamples,nPulses,antenna.NumElements));
+for ii=1:antenna.NumElements
+    for jj=1:nPulses
+        matched(:,jj,ii) = filter(b,1,datacube(:,ii,jj));
+    end
+end
+% Now use the AngleDopplerResponse object to display Target Angle and 
+% Dopppler frequency shift
+dd = squeeze(matched(ind,:,:)).';
+angleDopplerResp = phased.AngleDopplerResponse('SensorArray',antenna,...
+    'OperatingFrequency',3e8, ...
+    'PropagationSpeed',physconst('LightSpeed'),...
+    'PRF',prf, 'ElevationAngle',0);
+figure;
+plotResponse(angleDopplerResp,dd);
+%%
+% Complete
+##### SOURCE END #####
+--></body></html>
